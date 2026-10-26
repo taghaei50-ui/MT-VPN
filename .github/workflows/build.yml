@@ -109,39 +109,3 @@ jobs:
         main = "V2rayNG/app/src/main/res"
         for dens, s in sizes.items():
             d = main + "/mipmap-" + dens
-
-os.makedirs(d, exist_ok=True)
-            img = src.resize((s, s), Image.LANCZOS)
-            img.save(d + "/ic_launcher.png")
-            mask = Image.new("L", (s * 4, s * 4), 0)
-            ImageDraw.Draw(mask).ellipse((0, 0, s * 4 - 1, s * 4 - 1), fill=255)
-            mask = mask.resize((s, s), Image.LANCZOS)
-            r = img.copy()
-            r.putalpha(ImageChops.multiply(img.getchannel("A"), mask))
-            r.save(d + "/ic_launcher_round.png")
-        PY
-        find V2rayNG/app/src -path '*mipmap*' -name 'ic_launcher*' | sort
-
-    - name: Build APK
-      run: |
-        cd ${{ github.workspace }}/V2rayNG
-        echo "sdk.dir=${ANDROID_HOME}" > local.properties
-        chmod 755 gradlew
-        ./gradlew licenseFdroidReleaseReport
-        ./gradlew assembleRelease \
-          -Pandroid.injected.signing.store.file=$RUNNER_TEMP/mt.jks \
-          -Pandroid.injected.signing.store.password=mtvpn123456 \
-          -Pandroid.injected.signing.key.alias=mtvpn \
-          -Pandroid.injected.signing.key.password=mtvpn123456
-          
-    - name: Upload arm64-v8a APK
-      uses: actions/upload-artifact@v7
-      with:
-       name: arm64-v8a
-       path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
-
-    - name: Upload universal APK
-      uses: actions/upload-artifact@v7
-      with:
-        name: universal-apk
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*universal*.apk
