@@ -87,6 +87,12 @@ jobs:
           -keyalg RSA -keysize 2048 -validity 10000 \
           -storepass mtvpn123456 -keypass mtvpn123456 -dname "CN=MT VPN"
 
+    - name: Rename package and app name
+      run: |
+        sed -i 's/applicationId = "com\.v2ray\.ang"/applicationId = "com.mtvpn.app"/' V2rayNG/app/build.gradle.kts
+        find V2rayNG/app/src/main/res -name strings.xml -exec sed -i 's|\(name="app_name"[^>]*>\)[^<]*|\1MT VPN|' {} +
+        grep -n applicationId V2rayNG/app/build.gradle.kts
+
     - name: Build APK
       run: |
         cd ${{ github.workspace }}/V2rayNG
