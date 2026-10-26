@@ -91,8 +91,36 @@ jobs:
       run: |
         sed -i 's/applicationId = "com\.v2ray\.ang"/applicationId = "com.mtvpn.app"/' V2rayNG/app/build.gradle.kts
         grep -rl 'name="app_name"' V2rayNG/app/src | xargs -r sed -i 's|\(name="app_name"[^>]*>\)[^<]*|\1MT VPN|'
-        grep -rn 'app_name' V2rayNG/app/src V2rayNG/app/build.gradle.kts | head -30
         grep -n applicationId V2rayNG/app/build.gradle.kts
+
+    - name: Apply custom icon
+      run: |
+        if [ ! -f icon.png ]; then echo "icon.png not found, skipping"; exit 0; fi
+        pip install pillow --break-system-packages -q
+        python3 - <<'PY'
+        import os, glob
+        from PIL import Image, ImageDraw, ImageChops
+        src = Image.open("icon.png").convert("RGBA")
+        sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+        for res in glob.glob("V2rayNG/app/src/*/res"):
+            for d in glob.glob(res + "/mipmap-*"):
+                for f in glob.glob(d + "/ic_launcher.*") + glob.glob(d + "/ic_launcher_round.*"):
+                    os.remove(f)
+        main = "V2rayNG/app/src/main/res"
+        for dens, s in sizes.items():
+            d = main + "/mipmap-" + dens
+
+os.makedirs(d, exist_ok=True)
+            img = src.resize((s, s), Image.LANCZOS)
+            img.save(d + "/ic_launcher.png")
+            mask = Image.new("L", (s * 4, s * 4), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, s * 4 - 1, s * 4 - 1), fill=255)
+            mask = mask.resize((s, s), Image.LANCZOS)
+            r = img.copy()
+            r.putalpha(ImageChops.multiply(img.getchannel("A"), mask))
+            r.save(d + "/ic_launcher_round.png")
+        PY
+        find V2rayNG/app/src -path '*mipmap*' -name 'ic_launcher*' | sort
 
     - name: Build APK
       run: |
