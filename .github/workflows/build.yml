@@ -134,11 +134,11 @@ os.makedirs(d, exist_ok=True)
           -Pandroid.injected.signing.key.alias=mtvpn \
           -Pandroid.injected.signing.key.password=mtvpn123456
           
-   - name: Upload arm64-v8a APK
+    - name: Upload arm64-v8a APK
       uses: actions/upload-artifact@v7
       with:
-        name: arm64-v8a
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
+       name: arm64-v8a
+       path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
 
     - name: Upload universal APK
       uses: actions/upload-artifact@v7
