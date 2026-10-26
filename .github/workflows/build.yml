@@ -93,19 +93,26 @@ jobs:
         grep -rl 'name="app_name"' V2rayNG/app/src | xargs -r sed -i 's|\(name="app_name"[^>]*>\)[^<]*|\1MT VPN|'
         grep -n applicationId V2rayNG/app/build.gradle.kts
 
-    - name: Apply custom icon
+    - name: Build APK
       run: |
-        if [ ! -f icon.png ]; then echo "icon.png not found, skipping"; exit 0; fi
-        pip install pillow --break-system-packages -q
-        python3 - <<'PY'
-        import os, glob
-        from PIL import Image, ImageDraw, ImageChops
-        src = Image.open("icon.png").convert("RGBA")
-        sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
-        for res in glob.glob("V2rayNG/app/src/*/res"):
-            for d in glob.glob(res + "/mipmap-*"):
-                for f in glob.glob(d + "/ic_launcher.*") + glob.glob(d + "/ic_launcher_round.*"):
-                    os.remove(f)
-        main = "V2rayNG/app/src/main/res"
-        for dens, s in sizes.items():
-            d = main + "/mipmap-" + dens
+        cd ${{ github.workspace }}/V2rayNG
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew licenseFdroidReleaseReport
+        ./gradlew assembleRelease \
+          -Pandroid.injected.signing.store.file=$RUNNER_TEMP/mt.jks \
+          -Pandroid.injected.signing.store.password=mtvpn123456 \
+          -Pandroid.injected.signing.key.alias=mtvpn \
+          -Pandroid.injected.signing.key.password=mtvpn123456
+
+    - name: Upload arm64-v8a APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: arm64-v8a
+        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
+
+    - name: Upload universal APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: universal-apk
+        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*universal*.apk
