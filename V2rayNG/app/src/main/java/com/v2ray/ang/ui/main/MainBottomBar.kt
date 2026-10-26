@@ -133,4 +133,42 @@ fun NeonConnectButton(
     }
 }
 
-@Composab
+@Composable
+fun MainBottomBar(
+    displayText: String,
+    isRunning: Boolean,
+    isDarkTheme: Boolean,
+    onAction: (MainAction) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .windowInsetsPadding(WindowInsets.navigationBars),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AppDivider()
+        NeonConnectButton(
+            isRunning = isRunning,
+            onClick = { onAction(MainAction.ToggleService) },
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clickable(onClick = { onAction(MainAction.TestCurrentServer) })
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = displayText,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics {
+                    contentDescription = displayText
+                }
+            )
+        }
+    }
+}
