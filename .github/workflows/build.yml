@@ -90,7 +90,8 @@ jobs:
     - name: Rename package and app name
       run: |
         sed -i 's/applicationId = "com\.v2ray\.ang"/applicationId = "com.mtvpn.app"/' V2rayNG/app/build.gradle.kts
-        find V2rayNG/app/src/main/res -name strings.xml -exec sed -i 's|\(name="app_name"[^>]*>\)[^<]*|\1MT VPN|' {} +
+        grep -rl 'name="app_name"' V2rayNG/app/src | xargs -r sed -i 's|\(name="app_name"[^>]*>\)[^<]*|\1MT VPN|'
+        grep -rn 'app_name' V2rayNG/app/src V2rayNG/app/build.gradle.kts | head -30
         grep -n applicationId V2rayNG/app/build.gradle.kts
 
     - name: Build APK
