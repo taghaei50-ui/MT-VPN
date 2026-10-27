@@ -486,7 +486,6 @@ class MainViewModel(
             val right = selectedIndex + distance
             val left = selectedIndex - distance
             if (right in groups.indices) result += groups[right].id
-            if (left in groups.indices) result +=
             if (left in groups.indices) result += groups[left].id
         }
         return result
