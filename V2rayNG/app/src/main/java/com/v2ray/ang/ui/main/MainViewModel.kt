@@ -112,6 +112,10 @@ class MainViewModel(
 
     private val initialPageReady = CompletableDeferred<Unit>()
 
+    // ---------- Auto update / auto pick best ----------
+    private var autoStarted = false
+    private var autoPickGroupId: String? = null
+
     // ---------- Service events ----------
     init {
         collectServiceEvents()
@@ -133,6 +137,11 @@ class MainViewModel(
             MainServiceEvent.StateStartSuccess -> {
                 toastSuccess(R.string.toast_services_success)
                 updateRunningState(true)
+                // Auto ping after connect
+                viewModelScope.launch {
+                    delay(1500)
+                    testCurrentServerRealPing()
+                }
             }
 
             is MainServiceEvent.StateStartFailure -> {
@@ -332,7 +341,44 @@ class MainViewModel(
             } catch (error: Exception) {
                 LogUtil.e(AppConfig.TAG, "Main background initialization failed", error)
             }
+            autoUpdateAndTest()
         }
+    }
+
+    // Auto: update all subscriptions -> real ping on selected group -> sort -> select best
+    private fun autoUpdateAndTest() {
+        if (autoStarted) return
+        autoStarted = true
+        viewModelScope.launch {
+            try {
+                val result = withContext(ioDispatcher) { dataSource.updateConfigViaSubAll() }
+                if (result.configCount > 0) {
+                    cacheMutex.withLock { groupDataCache.clear() }
+                    setupGroupTab(forceRefresh = true).join()
+                }
+                if (uiState.value.groups.isEmpty()) return@launch
+                val groupId = uiState.value.selectedGroupId
+                testAllRealPing()
+                autoPickGroupId = if (uiState.value.isTesting) groupId else null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Auto update failed", error)
+            }
+        }
+    }
+
+    private fun selectBestServer(groupId: String) {
+        if (uiState.value.isRunning) return
+        val best = dataSource.getServerGuidList(groupId)
+            .mapNotNull { guid ->
+                val delayMillis = dataSource.decodeAffiliationInfo(guid)?.testDelayMillis ?: 0L
+                if (delayMillis > 0L) guid to delayMillis else null
+            }
+            .minByOrNull { it.second }
+            ?.first ?: return
+        dataSource.setSelectServer(best)
+        _uiState.update { it.copy(selectedGuid = best) }
     }
 
     fun refreshUiSettings() {
@@ -440,6 +486,7 @@ class MainViewModel(
             val right = selectedIndex + distance
             val left = selectedIndex - distance
             if (right in groups.indices) result += groups[right].id
+            if (left in groups.indices) result +=
             if (left in groups.indices) result += groups[left].id
         }
         return result
@@ -777,6 +824,8 @@ class MainViewModel(
     }
 
     fun updateSelectedGuid(guid: String) {
+        // The user chose a server manually: never override it automatically
+        autoPickGroupId = null
         dataSource.setSelectServer(guid)
         _uiState.update { it.copy(selectedGuid = guid) }
     }
@@ -816,6 +865,7 @@ class MainViewModel(
 
     // ---------- Testing ----------
     fun cancelAllPing() {
+        autoPickGroupId = null
         bulkTestJob?.cancel()
         bulkTestJob = null
         testRequests.cancelBulk()
@@ -901,8 +951,28 @@ class MainViewModel(
     private fun onTestsFinished(requestId: String) {
         if (testRequests.completeBulk(requestId) == null) return
         resetTestStatus()
+        val autoGroupId = autoPickGroupId
+        autoPickGroupId = null
         viewModelScope.launch(ioDispatcher) {
+            if (autoGroupId != null) {
+                try {
+                    sortByTestResultsInternal()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Auto sort failed", e)
+                }
+            }
             cacheMutex.withLock { groupDataCache.clear() }
+            if (autoGroupId != null) {
+                try {
+                    selectBestServer(autoGroupId)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Auto select failed", e)
+                }
+            }
             reloadAllGroups(_uiState.value.groups.map { it.id })
         }
     }
